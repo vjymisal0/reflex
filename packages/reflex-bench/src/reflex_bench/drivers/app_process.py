@@ -142,7 +142,7 @@ def free_ports(count: int = 1) -> list[int]:
         for _ in range(count):
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sockets.append(sock)
-            sock.bind(("", 0))
+            sock.bind(("127.0.0.1", 0))
         return [sock.getsockname()[1] for sock in sockets]
     finally:
         for sock in sockets:

@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -225,6 +226,27 @@ def test_strip_ansi():
     assert app_process.strip_ansi("Debug: \x1b[H\x1b[2J") == "Debug: "
     assert app_process.strip_ansi("\x1b]8;;http://x\x1b\\link\x1b]8;;\x1b\\") == "link"
     assert app_process.strip_ansi("\x1b[?25l\x1b[2Kdone\x1b(B") == "done"
+
+
+def test_free_ports_bind_only_loopback(monkeypatch: pytest.MonkeyPatch):
+    """Reserve distinct local ports without binding external interfaces."""
+    addresses: list[str] = []
+    sockets: list[socket.socket] = []
+
+    class RecordingSocket(socket.socket):
+        """Record the actual interface each real socket binds."""
+
+        def bind(self, address):
+            """Bind the socket and record its interface."""
+            super().bind(address)
+            addresses.append(self.getsockname()[0])
+            sockets.append(self)
+
+    monkeypatch.setattr(app_process.socket, "socket", RecordingSocket)
+    ports = app_process.free_ports(3)
+    assert addresses == ["127.0.0.1"] * 3
+    assert len(set(ports)) == 3
+    assert [sock.fileno() for sock in sockets] == [-1] * 3
 
 
 def test_free_ports_are_distinct():
